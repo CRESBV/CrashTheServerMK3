@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="tba-apiv2-java">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/tba-apiv2-java.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
