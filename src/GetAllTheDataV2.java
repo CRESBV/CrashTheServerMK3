@@ -1,6 +1,8 @@
 /**
  * Created by Edward on 4/13/2016.
  */
+import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Table;
 import com.google.common.collect.TreeBasedTable;
 import com.google.common.primitives.Doubles;
@@ -11,8 +13,15 @@ import com.plnyyanks.tba.apiv2.interfaces.APIv2;
 import com.plnyyanks.tba.apiv2.models.Event;
 import com.plnyyanks.tba.apiv2.models.Match;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Created by edbuckler on 4/9/16.
@@ -38,65 +47,131 @@ public class GetAllTheDataV2 {
         Table<String,String,List<Double>> dataTable= TreeBasedTable.create();
         for (Event event : events) {
             List<Match> matchList=api.fetchEventMatches(event.getKey(),null);
-            matchList.stream().limit(100)
+            matchList.stream()//.limit(100)
                     .forEach(match -> {
-                        String teamsInString=match.getAlliances().getAsJsonObject("blue").toString()+
-                                match.getAlliances().getAsJsonObject("red").toString();
-                        List<String> blueTeams= new ArrayList<>();
-                        for (JsonElement blueTeam : match.getAlliances().getAsJsonObject("blue").getAsJsonArray("teams")) {
-                            blueTeams.add(blueTeam.getAsString());
-                        }
-                        Double score=match.getAlliances().getAsJsonObject("blue").get("score").getAsDouble();
-                        System.out.println(blueTeams.toString());
+                        List<String> allianceColors = Lists.newArrayList("blue", "red");
+                        for (String allianceColor : allianceColors) {
 
-                        for (String blueTeam : blueTeams) {
-                            List<Double> values=dataTable.get(blueTeam,"score");
-                            if(values==null) {
-                                values=new ArrayList<>();
+
+//                        String teamsInString=match.getAlliances().getAsJsonObject("blue").toString()+
+//                                match.getAlliances().getAsJsonObject("red").toString();
+                            List<String> oneAlliance = new ArrayList<>();
+                            for (JsonElement blueTeam : match.getAlliances().getAsJsonObject(allianceColor).getAsJsonArray("teams")) {
+                                oneAlliance.add(blueTeam.getAsString());
                             }
-                            values.add(score);
-                            dataTable.put(blueTeam,"score",values);
-                        }
-                        JsonObject scoreBreak=null;
-                        try{
-                            scoreBreak=match.getScore_breakdown().getAsJsonObject().getAsJsonObject("blue");
-                        } catch (IllegalStateException ise) {
-                            System.err.println(match.toString());
-                        }
-                        if(scoreBreak==null) return;
-                        for (String blueTeam : blueTeams) {
-                            scoreBreak.entrySet().stream()
-                                    .forEach(es -> {
-                                        System.out.println(es.toString());
-                                        Double value=Double.NaN;
-                                        String valueAsString=es.getValue().getAsString();
-                                        if(Doubles.tryParse(valueAsString)!=null) {
-                                            value=Double.parseDouble(valueAsString);
-                                        } else if(valueAsString.equals("true")) {
-                                            value=1.0;
-                                        } else if(valueAsString.equals("false")) {
-                                            value=0.0;
-                                        } else if(valueAsString.equals("Challenged")) {
-                                            value=1.0;
-                                        }  else if(valueAsString.equals("None")) {
-                                            value=0.0;
-                                        } else {
-                                            value=Double.NaN;
-                                        }
-                                        List<Double> values = dataTable.get(blueTeam, es.getKey());
-                                        if (values == null) {
-                                            values = new ArrayList<>();
-                                        }
-                                        values.add(value);
-                                        dataTable.put(blueTeam, es.getKey(), values);
-                                    });
-                        }
 
+                            JsonObject scoreBreak = null;
+                            try {
+                                scoreBreak = match.getScore_breakdown().getAsJsonObject().getAsJsonObject(allianceColor);
+                            } catch (IllegalStateException ise) {
+                                System.err.println(match.toString());
+                            }
+                            if (scoreBreak == null) return;
+                            addScoresToDataTable(dataTable, scoreBreak, oneAlliance);
+                        }
                     });
-            break;
         }
-        System.out.println(dataTable.toString());
+        System.out.println(makeNiceLookingTable(dataTable));
+        Path output = Paths.get("/Users/edbuckler/Downloads/CrashTheServerOutput.txt");
+        try {
+            Files.write(output, makeNiceLookingTable(dataTable).getBytes());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        //System.out.println(dataTable.toString());
 
+    }
+
+    private static void addScoresToDataTable(Table<String,String,List<Double>> dataTable, JsonObject scoreBreak,
+                                             List<String> oneAlliance) {
+        Map<String,String> positionMap=createPositionMap(scoreBreak);
+        positionMap.put("position1crossings","Low_Bar");
+        for (String aTeam : oneAlliance) {
+            scoreBreak.entrySet().stream()
+                    .forEach(es -> {
+                        if(es.getKey().equals("towerFaceC")) {
+                            // System.out.println(blueTeam+":"+es.toString());
+                        }
+                        if(aTeam.equals("frc3354")) {
+                            System.out.println(aTeam+":"+es.toString());
+                        }
+                        String finalKey=es.getKey();
+                        //all key keep their original names except for the position crossings
+                        if(positionMap.containsKey(es.getKey())) {
+                            finalKey=positionMap.get(es.getKey());
+                        }
+
+                        Double finalValue=Double.NaN;
+                        String valueAsString=es.getValue().getAsString();
+                        if(Doubles.tryParse(valueAsString)!=null) {
+                            finalValue=Double.parseDouble(valueAsString);
+                        } else if(valueAsString.equals("true")) {
+                            finalValue=1.0;
+                        } else if(valueAsString.equals("false")) {
+                            finalValue=0.0;
+                        } else if(valueAsString.equals("Challenged") || valueAsString.equals("Scaled") || valueAsString.equals("Both")) {
+                            finalValue=1.0;
+                        }  else if(valueAsString.equals("Unknown")) {
+                            finalValue=0.0;
+                        }  else if(valueAsString.equals("None")) {
+                            finalValue=0.0;
+                        } else {
+                            finalValue=Double.NaN;
+                        }
+                        if(es.getKey().equals("towerFaceC") && (Double.isNaN(finalValue))) {
+                            System.err.println(aTeam+":"+es.toString());
+                        }
+                        List<Double> values = dataTable.get(aTeam, finalKey);
+                        if (values == null) {
+                            values = new ArrayList<>();
+                        }
+                        values.add(finalValue);
+                        dataTable.put(aTeam, finalKey, values);
+                    });
+        }
+
+    }
+
+    private static Map<String,String> createPositionMap(JsonObject scoreBreak) {
+        String regex = "position\\d";
+        return scoreBreak.entrySet().stream()
+                .filter(es -> es.getKey().matches(regex))
+                //.peek(es -> System.out.println(es.toString()))
+                .collect(Collectors.toMap(es -> es.getKey()+"crossings", es -> es.getValue().getAsString()));
+
+    }
+
+    private static String makeNiceLookingTable(Table<String,String,List<Double>> dataTable) {
+        String delimiter="\t";
+        final StringBuilder sb=new StringBuilder();
+        List<String> attributes=new ArrayList<>(dataTable.columnKeySet());
+        sb.append(dataTable.columnKeySet().stream().collect(Collectors.joining(delimiter,"Team"+delimiter,"")));
+        sb.append("\n");
+        dataTable.rowKeySet().stream().forEach(teamNames -> {
+            sb.append(teamNames+delimiter);
+            attributes.stream().forEach(att -> {
+                List<Double> valArray=dataTable.get(teamNames,att);
+                if(valArray==null) {
+                    sb.append(Double.NEGATIVE_INFINITY+delimiter);
+                } else {
+                    //sb.append(valArray.toString()+"=");
+                    sb.append(valArray.stream().mapToDouble(d -> d)
+                            .filter(d -> !Double.isNaN(d))
+                            .average().orElse(Double.NEGATIVE_INFINITY) + delimiter);
+
+                }
+            });
+            int matchCount = dataTable.get(teamNames, "totalPoints").size();
+            sb.append(matchCount);
+//            dataTable.row(teamNames).values().stream()
+//                    .forEach(valArray -> {
+//                        sb.append(valArray.stream().mapToDouble(d -> d).average().orElse(Double.NEGATIVE_INFINITY)+delimiter);
+//                        //sb.append(valArray.toString()+delimiter);
+//                    });
+            sb.append("\n");
+
+        });
+        return sb.toString();
     }
 
 
