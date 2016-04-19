@@ -47,14 +47,10 @@ public class GetAllTheDataV2 {
         Table<String,String,List<Double>> dataTable= TreeBasedTable.create();
         for (Event event : events) {
             List<Match> matchList=api.fetchEventMatches(event.getKey(),null);
-            matchList.stream()//.limit(100)
+            matchList.stream()//.limit(10)
                     .forEach(match -> {
                         List<String> allianceColors = Lists.newArrayList("blue", "red");
                         for (String allianceColor : allianceColors) {
-
-
-//                        String teamsInString=match.getAlliances().getAsJsonObject("blue").toString()+
-//                                match.getAlliances().getAsJsonObject("red").toString();
                             List<String> oneAlliance = new ArrayList<>();
                             for (JsonElement blueTeam : match.getAlliances().getAsJsonObject(allianceColor).getAsJsonArray("teams")) {
                                 oneAlliance.add(blueTeam.getAsString());
@@ -64,9 +60,10 @@ public class GetAllTheDataV2 {
                             JsonObject scoreBreakDef = null;
                             try {
                                 scoreBreak = match.getScore_breakdown().getAsJsonObject().getAsJsonObject(allianceColor);
+                                //opposite
                                 scoreBreakDef = match.getScore_breakdown().getAsJsonObject().getAsJsonObject(allianceColor.equals("blue")?"red":"blue");
                             } catch (IllegalStateException ise) {
-                                System.err.println(match.toString());
+                                System.err.println("Match scores failing for:"+match.getKey().toString());
                             }
                             if (scoreBreak == null || scoreBreakDef==null) return;
                             addScoresToDataTable(dataTable, scoreBreak, oneAlliance,true);
@@ -92,19 +89,17 @@ public class GetAllTheDataV2 {
         positionMap.put("position1crossings","Low_Bar");
         for (String aTeam : oneAlliance) {
             scoreBreak.entrySet().stream()
-                    .filter(es -> !es.getKey().startsWith("position"))
+                    .filter(es -> !es.getKey().matches("position\\d"))
                     .filter(es -> !es.getKey().startsWith("robot"))
+                    .filter(es -> !es.getKey().startsWith("adjustPoints"))
                     .forEach(es -> {
-//                        if(es.getKey().equals("towerFaceC")) {
-//                            // System.out.println(blueTeam+":"+es.toString());
-//                        }
-//                        if(aTeam.equals("frc3354")) {
-//                            System.out.println(aTeam+":"+es.toString());
-//                        }
                         String finalKey=prefix+es.getKey();
                         //all key keep their original names except for the position crossings
                         if(positionMap.containsKey(es.getKey())) {
                             finalKey=prefix+positionMap.get(es.getKey());
+                        } else {
+                            //This deals with a rare situation then defense is not specified for a crossing
+                            if(es.getKey().matches("position\\dcrossings")) return;
                         }
 
                         Double finalValue=Double.NaN;
@@ -142,6 +137,7 @@ public class GetAllTheDataV2 {
         String regex = "position\\d";
         return scoreBreak.entrySet().stream()
                 .filter(es -> es.getKey().matches(regex))
+                .filter(es -> !es.getValue().getAsString().startsWith("NotSpecified"))
                 //.peek(es -> System.out.println(es.toString()))
                 .collect(Collectors.toMap(es -> es.getKey()+"crossings", es -> es.getValue().getAsString()));
 
