@@ -61,13 +61,16 @@ public class GetAllTheDataV2 {
                             }
 
                             JsonObject scoreBreak = null;
+                            JsonObject scoreBreakDef = null;
                             try {
                                 scoreBreak = match.getScore_breakdown().getAsJsonObject().getAsJsonObject(allianceColor);
+                                scoreBreakDef = match.getScore_breakdown().getAsJsonObject().getAsJsonObject(allianceColor.equals("blue")?"red":"blue");
                             } catch (IllegalStateException ise) {
                                 System.err.println(match.toString());
                             }
-                            if (scoreBreak == null) return;
-                            addScoresToDataTable(dataTable, scoreBreak, oneAlliance);
+                            if (scoreBreak == null || scoreBreakDef==null) return;
+                            addScoresToDataTable(dataTable, scoreBreak, oneAlliance,true);
+                            addScoresToDataTable(dataTable, scoreBreakDef, oneAlliance,false);
                         }
                     });
         }
@@ -83,22 +86,25 @@ public class GetAllTheDataV2 {
     }
 
     private static void addScoresToDataTable(Table<String,String,List<Double>> dataTable, JsonObject scoreBreak,
-                                             List<String> oneAlliance) {
+                                             List<String> oneAlliance, boolean offenseOrDefence) {
+        final String prefix=(offenseOrDefence)?"Off_":"Def_";
         Map<String,String> positionMap=createPositionMap(scoreBreak);
         positionMap.put("position1crossings","Low_Bar");
         for (String aTeam : oneAlliance) {
             scoreBreak.entrySet().stream()
+                    .filter(es -> !es.getKey().startsWith("position"))
+                    .filter(es -> !es.getKey().startsWith("robot"))
                     .forEach(es -> {
-                        if(es.getKey().equals("towerFaceC")) {
-                            // System.out.println(blueTeam+":"+es.toString());
-                        }
-                        if(aTeam.equals("frc3354")) {
-                            System.out.println(aTeam+":"+es.toString());
-                        }
-                        String finalKey=es.getKey();
+//                        if(es.getKey().equals("towerFaceC")) {
+//                            // System.out.println(blueTeam+":"+es.toString());
+//                        }
+//                        if(aTeam.equals("frc3354")) {
+//                            System.out.println(aTeam+":"+es.toString());
+//                        }
+                        String finalKey=prefix+es.getKey();
                         //all key keep their original names except for the position crossings
                         if(positionMap.containsKey(es.getKey())) {
-                            finalKey=positionMap.get(es.getKey());
+                            finalKey=prefix+positionMap.get(es.getKey());
                         }
 
                         Double finalValue=Double.NaN;
@@ -146,7 +152,7 @@ public class GetAllTheDataV2 {
         final StringBuilder sb=new StringBuilder();
         List<String> attributes=new ArrayList<>(dataTable.columnKeySet());
         sb.append(dataTable.columnKeySet().stream().collect(Collectors.joining(delimiter,"Team"+delimiter,"")));
-        sb.append("\n");
+        sb.append(delimiter+"MatchCount\n");
         dataTable.rowKeySet().stream().forEach(teamNames -> {
             sb.append(teamNames+delimiter);
             attributes.stream().forEach(att -> {
@@ -161,7 +167,7 @@ public class GetAllTheDataV2 {
 
                 }
             });
-            int matchCount = dataTable.get(teamNames, "totalPoints").size();
+            int matchCount = dataTable.get(teamNames, "Off_totalPoints").size();
             sb.append(matchCount);
 //            dataTable.row(teamNames).values().stream()
 //                    .forEach(valArray -> {
