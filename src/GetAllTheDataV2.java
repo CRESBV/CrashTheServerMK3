@@ -36,7 +36,7 @@ public class GetAllTheDataV2 {
         //args restrict by event and/or by team
         final Set<String> teamsToScore;
         final Set<String> eventsToScore;
-        if(args!=null) {
+        if(args.length==1) {
             List<List<String>> lists=ReadFiles.getEventNames(args[0]);
             eventsToScore=new HashSet<>(lists.get(0));
             teamsToScore=new HashSet<>(lists.get(1));
@@ -63,7 +63,7 @@ public class GetAllTheDataV2 {
         //List<String> eventsToAnalyze=Lists.newArrayList("2016nyro");
 
         events.stream()
-               // .limit(5)
+                .limit(5)
                 .filter(event -> (eventsToScore==null) || (eventsToScore.contains(event)))
                 .forEach(event -> {
                     List<Match> matchList = api.fetchEventMatches(event.getKey(), null);
@@ -99,8 +99,8 @@ public class GetAllTheDataV2 {
 
 //        System.out.println(makeNiceLookingTable(dataTable));
 
-        Path output = Paths.get("/Users/edbuckler/Downloads/CrashTheServerOutput.txt");
-        Path outputPS = Paths.get("/Users/edbuckler/Downloads/CrashTheServerPSOutput.txt");
+        Path output = Paths.get("/Users/edbuckler/Downloads/xCrashTheServerOutput.txt");
+        Path outputPS = Paths.get("/Users/edbuckler/Downloads/xCrashTheServerPSOutput.txt");
         try {
             Files.write(output, makeNiceLookingTable(dataTable).getBytes());
             Files.write(outputPS, estimatePowerScores(powerTable,dataTable).getBytes());
