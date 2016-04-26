@@ -1,7 +1,6 @@
 /**
  * Created by Edward on 4/13/2016.
  */
-import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Table;
 import com.google.common.collect.TreeBasedTable;
@@ -21,15 +20,16 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * Created by edbuckler on 4/9/16.
  */
 public class GetAllTheDataV2 {
 
-    //private static final String API_APP_ID = "plnyyanks:apiv2-java-junit:v0.1";
     private static final String API_APP_ID = "frc639:scouting-system:v01";
+    private static Path outputAvg = Paths.get("/Users/edbuckler/Downloads/xCrashTheServerOutput.txt");
+    private static Path outputPowerScore = Paths.get("/Users/edbuckler/Downloads/xCrashTheServerPSOutput.txt");
+
     //https://docs.google.com/spreadsheets/d/1HqsReMjr5uBuyZjqv14t6bQF2n038GfMmWi3B6vFGiA/edit#gid=24
 
     public static void main(String[] args) {
@@ -48,19 +48,12 @@ public class GetAllTheDataV2 {
         APIv2Helper.setAppId(API_APP_ID);
         APIv2 api = APIv2Helper.getAPI();
         System.out.println("Hello World");
-//        List<District> districts = api.fetchDistrictList(2016, null);
-        // List<Event> events = api.fetchDistrictEvents("in", 2016, null);
         List<Event> events = api.fetchEventsInYear(2016,null);
         events.stream().forEach(ev -> System.out.println(ev.getKey()+"\t"+ev.getStart_date()));
 
-//        Match matches=api.fetchMatch("2016nyro_f1m1",null);
-//        System.out.println(matches.getKey()+matches.getAlliances().toString());
-//        System.out.println(matches.getScore_breakdown().toString());
 
         Table<String,String,List<Double>> dataTable= TreeBasedTable.create();
         Table<String,String,Integer> powerTable= TreeBasedTable.create();
-        //Map<String, Double> attributeSum = new TreeMap<>();
-        //List<String> eventsToAnalyze=Lists.newArrayList("2016nyro");
 
         events.stream()
                 .limit(5)
@@ -93,65 +86,15 @@ public class GetAllTheDataV2 {
                                 }
                             });
                 });
-       // estimatePowerScores(powerTable,attributeSum);
-//        estimatePowerScores(powerTable,getSumFromDataTable(dataTable,"Off_totalPoints"));
-        //estimatePowerScores(powerTable,dataTable);
 
-//        System.out.println(makeNiceLookingTable(dataTable));
-
-        Path output = Paths.get("/Users/edbuckler/Downloads/xCrashTheServerOutput.txt");
-        Path outputPS = Paths.get("/Users/edbuckler/Downloads/xCrashTheServerPSOutput.txt");
         try {
-            Files.write(output, makeNiceLookingTable(dataTable).getBytes());
-            Files.write(outputPS, estimatePowerScores(powerTable,dataTable).getBytes());
+            Files.write(outputAvg, makeNiceLookingTable(dataTable).getBytes());
+            Files.write(outputPowerScore, estimatePowerScores(powerTable,dataTable).getBytes());
         } catch (IOException e) {
             e.printStackTrace();
         }
         //System.out.println(dataTable.toString());
 
-    }
-
-    private static Map<String, Double> getSumFromDataTable(Table<String,String,List<Double>> dataTable,
-                                                                        String attribute) {
-        Map<String, Double> attributeSum = new TreeMap<>();
-        dataTable.rowKeySet().stream().forEach(teamName -> {
-            double sum=dataTable.get(teamName,attribute).stream()
-                    .filter(d -> !Double.isNaN(d))
-                    .mapToDouble(d -> d)
-                    .sum();
-            attributeSum.put(teamName,sum);
-            });
-        return attributeSum;
-    }
-
-    private static void estimatePowerScores(Table<String,String,Integer> powerTable, Map<String, Double> attributeSum) {
-        int numberOfTeams=powerTable.rowKeySet().size();
-        DoubleMatrix allianceIncidenceDM= DoubleMatrixFactory.DEFAULT.make(numberOfTeams,numberOfTeams);
-        DoubleMatrix teamTotalScoreDM= DoubleMatrixFactory.DEFAULT.make(numberOfTeams,1);
-
-
-
-        List<String> teams=new ArrayList<>(attributeSum.keySet());
-        for (int r = 0; r < teams.size(); r++) {
-            String rowTeam=teams.get(r);
-            teamTotalScoreDM.set(r,0,attributeSum.get(rowTeam));
-            for (int c = 0; c < teams.size(); c++) {
-                String colTeam=teams.get(c);
-                Integer incidences=powerTable.get(rowTeam,colTeam);
-                if(incidences==null) incidences=0;
-                allianceIncidenceDM.set(r,c,incidences);
-            }
-        }
-//        System.out.println(allianceIncidenceDM.toString());
-//        System.out.println(teamTotalScoreDM.toString());
-        DoubleMatrix allIncInv = allianceIncidenceDM.inverse();
-//        System.out.println(allIncInv.toString());
-        DoubleMatrix teamTimeInv=allIncInv.mult(teamTotalScoreDM);
-//        System.out.println(teamTimeInv.toString());
-
-        for (int rows = 0; rows < teams.size(); rows++) {
-            System.out.println(teams.get(rows)+"\t"+teamTimeInv.get(rows,0));
-        }
     }
 
     private static String estimatePowerScores(Table<String,String,Integer> powerTable, Table<String,String,List<Double>> dataTable) {
