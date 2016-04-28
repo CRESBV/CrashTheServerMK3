@@ -35,15 +35,16 @@ public class GetAllTheDataV2 {
     public static void main(String[] args) {
         //args restrict by event and/or by team
         final Set<String> teamsToScore;
-        final Set<String> eventsToScore;
-        if(args.length==1) {
-            List<List<String>> lists=ReadFiles.getEventNames(args[0]);
-            eventsToScore=new HashSet<>(lists.get(0));
-            teamsToScore=new HashSet<>(lists.get(1));
-        } else {
-            teamsToScore=null;
-            eventsToScore=null;
-        }
+        List<String> evToScoreList=Lists.newArrayList("2016cur");
+        final Set<String> eventsToScore=new HashSet<>(evToScoreList);
+//        if(args.length==1) {
+//            List<List<String>> lists=ReadFiles.getEventNames(args[0]);
+//            eventsToScore=new HashSet<>(lists.get(0));
+//            teamsToScore=new HashSet<>(lists.get(1));
+//        } else {
+//            teamsToScore=null;
+//            eventsToScore=null;
+//        }
 
         APIv2Helper.setAppId(API_APP_ID);
         APIv2 api = APIv2Helper.getAPI();
@@ -56,8 +57,9 @@ public class GetAllTheDataV2 {
         Table<String,String,Integer> powerTable= TreeBasedTable.create();
 
         events.stream()
-                .limit(5)
-                .filter(event -> (eventsToScore==null) || (eventsToScore.contains(event)))
+                //.limit(5)
+                .peek(event -> System.out.println(event.getKey()))
+                .filter(event -> (eventsToScore==null) || (eventsToScore.contains(event.getKey())))
                 .forEach(event -> {
                     List<Match> matchList = api.fetchEventMatches(event.getKey(), null);
                     matchList.stream()//.limit(10)
