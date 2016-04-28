@@ -114,16 +114,23 @@ public class GetAllTheDataV2 {
 
 
         for (int r = 0; r < teams.size(); r++) {
+            int countOfIncidence=0;
             String rowTeam=teams.get(r);
             for (int c = 0; c < teams.size(); c++) {
                 String colTeam=teams.get(c);
                 Integer incidences=powerTable.get(rowTeam,colTeam);
                 if(incidences==null) incidences=0;
                 allianceIncidenceDM.set(r,c,incidences);
+                countOfIncidence+=incidences;
             }
+            if(countOfIncidence==0) System.out.println("No competition yet:"+teams.get(r));
         }
 
         DoubleMatrix allIncInv = allianceIncidenceDM.inverse();
+        if(Double.isNaN(allIncInv.get(0,0))) {
+            System.out.println("Matrix not invertible.  Using the generalized inverse.");
+            allIncInv = allianceIncidenceDM.generalizedInverse();
+        }
 
         for (int a = 0; a < numberOfAttributes; a++) {
             String attribute=attributes.get(a);
